@@ -71,7 +71,6 @@ int main(int argc, char **argv) {
   }
 
   // Done. Shut everything down.
-  delete offscreen_canvas;
   delete matrix;
 
   return 0;

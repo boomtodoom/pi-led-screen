@@ -2,7 +2,7 @@
 CXX = g++
 
 # Define the flags for the compiler
-CXXFLAGS = -Wall -Wextra -std=c++11 -Iinclude
+CXXFLAGS = -Wall -Wextra -std=c++11 -Iinclude -I/usr/local/include -I./include
 
 # Define the source files
 SRCS = main.cpp
@@ -18,14 +18,14 @@ all: $(TARGET)
 
 # Rule to link the object files into the final executable
 $(TARGET): $(OBJS)
-    $(CXX) $(CXXFLAGS) -o $(TARGET) $(OBJS)
+	$(CXX) $(CXXFLAGS) -o $(TARGET) $(OBJS) -L/usr/local/lib -L./lib -lrgbmatrix
 
 # Rule to compile the source files into object files
 %.o: %.cpp
-    $(CXX) $(CXXFLAGS) -c $< -o $@
+	$(CXX) $(CXXFLAGS) -c $< -o $@
 
 # Clean up the build files
 clean:
-    rm -f $(OBJS) $(TARGET)
+	rm -f $(OBJS) $(TARGET)
 
 .PHONY: all clean
