@@ -1,36 +1,28 @@
 #include "led-matrix.h"
-
-#include <iostream>
-#include <unistd.h>
+#include "graphics.h"
 #include <signal.h>
-#include <stdio.h>
-#include <stdlib.h>
-#include <time.h>
+#include <unistd.h>
 
-using rgb_matrix::RGBMatrix;
-using rgb_matrix::Canvas;
-using rgb_matrix::FrameCanvas;
-using rgb_matrix::RuntimeOptions;
+using namespace rgb_matrix;
 
 volatile bool interrupt_received = false;
-
 static void InterruptHandler(int signo) {
   interrupt_received = true;
 }
 
-void DrawOnCanvas(Canvas *canvas) {
-  const int width = canvas->width();
-  const int height = canvas->height();
+void DrawOnCanvas(FrameCanvas *canvas) {
+  // Set the color to red
+  Color red(255, 0, 0);
 
-  // Draw a red box in the middle
-  for (int y = height / 4; y < height * 3 / 4; ++y) {
-    for (int x = width / 4; x < width * 3 / 4; ++x) {
-      canvas->SetPixel(x, y, 255, 0, 0);
+  // Draw a red box across the screen
+  for (int x = 0; x < 128; ++x) {
+    for (int y = 0; y < 64; ++y) {
+      canvas->SetPixel(x, y, red.r, red.g, red.b);
     }
   }
 }
 
-void main(int argc, char **argv) {
+int main(int argc, char **argv) {
   RGBMatrix::Options matrix_options;
   RuntimeOptions runtime_options;
 
@@ -49,7 +41,7 @@ void main(int argc, char **argv) {
   }
 
   // Do your own command line handling with the remaining flags.
-  while (getopt()) {...}
+  // while (getopt()) {...}
 
   // Looks like we're ready to start
   RGBMatrix *matrix = RGBMatrix::CreateFromOptions(matrix_options, runtime_options);
@@ -81,4 +73,6 @@ void main(int argc, char **argv) {
   // Done. Shut everything down.
   delete offscreen_canvas;
   delete matrix;
+
+  return 0;
 }
