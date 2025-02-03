@@ -1,2 +1,5 @@
 main.o
 pi-rgb-led-matrix
+lib/*.o
+lib/*.so
+lib/*.a
