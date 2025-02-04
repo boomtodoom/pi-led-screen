@@ -5,6 +5,9 @@
 #include <Magick++.h>
 #include <magick/image.h>
 #include <glob.h>
+#include <dirent.h>
+#include <vector>
+#include <string>
 
 using namespace rgb_matrix;
 
@@ -33,6 +36,13 @@ void drawImage(const Magick::Image &image, FrameCanvas *canvas){
   }
 }
 
+void draw_video(const std::vector<Magick::Image> &images, FrameCanvas *canvas){
+  for (const auto &image : images){
+    drawImage(image, canvas);
+    usleep(30000); // Adjust the delay as needed
+  }
+}
+
 int main(int argc, char **argv) {
   RGBMatrix::Options matrix_options;
   RuntimeOptions runtime_options;
@@ -52,21 +62,35 @@ int main(int argc, char **argv) {
   }
 
   if (argc < 2) {
-    fprintf(stderr, "Usage: %s <image-path>\n", argv[0]);
+    fprintf(stderr, "Usage: %s <folder-path>\n", argv[0]);
     return 1;
   }
 
-  const char *image_path = argv[1];
+  const char *folder_path = argv[1];
 
   // Initialize ImageMagick
   Magick::InitializeMagick(*argv);
 
-  // Load the image
-  Magick::Image image;
-  try {
-    image.read(image_path);
-  } catch (Magick::Exception &error) {
-    fprintf(stderr, "Error loading image: %s\n", error.what());
+  // Load all images in the folder
+  std::vector<Magick::Image> images;
+  DIR *dir;
+  struct dirent *ent;
+  if ((dir = opendir(folder_path)) != NULL) {
+    while ((ent = readdir(dir)) != NULL) {
+      std::string file_name = ent->d_name;
+      if (file_name.find(".png") != std::string::npos || file_name.find(".jpg") != std::string::npos) {
+        try {
+          Magick::Image image;
+          image.read(std::string(folder_path) + "/" + file_name);
+          images.push_back(image);
+        } catch (Magick::Exception &error) {
+          fprintf(stderr, "Error loading image %s: %s\n", file_name.c_str(), error.what());
+        }
+      }
+    }
+    closedir(dir);
+  } else {
+    perror("Could not open directory");
     return 1;
   }
 
@@ -86,15 +110,10 @@ int main(int argc, char **argv) {
   signal(SIGTERM, InterruptHandler);
   signal(SIGINT, InterruptHandler);
 
-  // Draw the image on the canvas
-  drawImage(image, offscreen_canvas);
-
-  // Swap the offscreen canvas with the onscreen canvas
-  matrix->SwapOnVSync(offscreen_canvas);
-
-  // Wait for a signal to gracefully shutdown
+  // Repeatedly call draw_video endlessly
   while (!interrupt_received) {
-    usleep(100000);
+    draw_video(images, offscreen_canvas);
+    matrix->SwapOnVSync(offscreen_canvas);
   }
 
   // Done. Shut everything down.
