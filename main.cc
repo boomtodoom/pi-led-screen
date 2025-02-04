@@ -39,8 +39,8 @@ void load_images_from_dir(const std::string &dir, std::vector<Magick::Image> &im
   Magick::Image image;
   Magick::Blob blob;
   std::vector<std::string> files;
-  std::string path = dir + "/*";
   glob_t glob_result;
+  std::string path = dir;
   glob(path.c_str(), GLOB_TILDE, NULL, &glob_result);
 
   for (unsigned int i = 0; i < glob_result.gl_pathc; ++i){
@@ -55,12 +55,10 @@ void load_images_from_dir(const std::string &dir, std::vector<Magick::Image> &im
 
 void DrawOnCanvas(FrameCanvas *canvas) {
   // Set the color to red
-  Color red(255, 0, 0);
-
   // Draw a red box across the screen
-  for (int x = 0; x < 128; ++x) {
-    for (int y = 0; y < 64; ++y) {
-      canvas->SetPixel(x, y, red.r, red.g, red.b);
+  for (int x = 0; x < 32; ++x) {
+    for (int y = 0; y < 32; ++y) {
+      canvas->SetPixel(x, y, x, y, x);
     }
   }
 }
@@ -70,16 +68,12 @@ int main(int argc, char **argv) {
   RuntimeOptions runtime_options;
 
   // Set defaults
-  matrix_options.chain_length = 3;
+  matrix_options.chain_length = 1;
   matrix_options.parallel = 1;
   matrix_options.hardware_mapping = "regular";
   matrix_options.rows = 64;
   matrix_options.cols = 128;
-  matrix_options.show_refresh_rate = true;
-  matrix_options.disable_hardware_pulsing = true;
   matrix_options.brightness = 100;
-  matrix_options.pwm_bits = 11;
-  runtime_options.drop_privileges = 1;
   runtime_options.gpio_slowdown = 5;
 
   if (!rgb_matrix::ParseOptionsFromFlags(&argc, &argv, &matrix_options, &runtime_options)) {
