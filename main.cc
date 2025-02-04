@@ -13,7 +13,6 @@ static void InterruptHandler(int signo) {
   interrupt_received = true;
 }
 
-
 /* Draws an image to the screen pixel by pixel, and pixels outside the 
 image width but within the screen width are set to black to prevent shadowing issues. */
 void drawImage(const Magick::Image &image, FrameCanvas *canvas){
@@ -26,39 +25,10 @@ void drawImage(const Magick::Image &image, FrameCanvas *canvas){
     for (int y = 0; y < height; ++y){
       if (x < imageWidth && y < imageHeight){
         Magick::ColorRGB color = image.pixelColor(x, y);
-        canvas->SetPixel(x, y, color.red(), color.green(), color.blue());
+        canvas->SetPixel(x, y, color.red() * 255, color.green() * 255, color.blue() * 255);
       } else {
         canvas->SetPixel(x, y, 0, 0, 0);
       }
-    }
-  }
-}
-
-void load_images_from_dir(const std::string &dir, std::vector<Magick::Image> &images){
-  Magick::InitializeMagick(NULL);
-  Magick::Image image;
-  Magick::Blob blob;
-  std::vector<std::string> files;
-  glob_t glob_result;
-  std::string path = dir;
-  glob(path.c_str(), GLOB_TILDE, NULL, &glob_result);
-
-  for (unsigned int i = 0; i < glob_result.gl_pathc; ++i){
-    files.push_back(std::string(glob_result.gl_pathv[i]));
-  }
-
-  for (unsigned int i = 0; i < files.size(); ++i){
-    image.read(files[i]);
-    images.push_back(image);
-  }
-}
-
-void DrawOnCanvas(FrameCanvas *canvas) {
-  // Set the color to red
-  // Draw a red box across the screen
-  for (int x = 0; x < 32; ++x) {
-    for (int y = 0; y < 32; ++y) {
-      canvas->SetPixel(x, y, x, y, x);
     }
   }
 }
@@ -81,8 +51,24 @@ int main(int argc, char **argv) {
     return 1;
   }
 
-  // Do your own command line handling with the remaining flags.
-  // while (getopt()) {...}
+  if (argc < 2) {
+    fprintf(stderr, "Usage: %s <image-path>\n", argv[0]);
+    return 1;
+  }
+
+  const char *image_path = argv[1];
+
+  // Initialize ImageMagick
+  Magick::InitializeMagick(*argv);
+
+  // Load the image
+  Magick::Image image;
+  try {
+    image.read(image_path);
+  } catch (Magick::Exception &error) {
+    fprintf(stderr, "Error loading image: %s\n", error.what());
+    return 1;
+  }
 
   // Looks like we're ready to start
   RGBMatrix *matrix = RGBMatrix::CreateFromOptions(matrix_options, runtime_options);
@@ -100,8 +86,8 @@ int main(int argc, char **argv) {
   signal(SIGTERM, InterruptHandler);
   signal(SIGINT, InterruptHandler);
 
-  // Draw something on the canvas
-  DrawOnCanvas(offscreen_canvas);
+  // Draw the image on the canvas
+  drawImage(image, offscreen_canvas);
 
   // Swap the offscreen canvas with the onscreen canvas
   matrix->SwapOnVSync(offscreen_canvas);
