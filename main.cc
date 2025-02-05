@@ -9,6 +9,7 @@
 #include <string>
 #include <dirent.h>
 #include <iostream>
+#include <algorithm>
 
 using namespace rgb_matrix;
 
@@ -53,6 +54,9 @@ std::vector<std::string> get_image_files(const std::string &folder_path) {
   } else {
     perror("Could not open directory");
   }
+
+  // Sort the files by their names
+  std::sort(files.begin(), files.end());
 
   return files;
 }
