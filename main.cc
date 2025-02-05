@@ -55,6 +55,7 @@ int main(int argc, char **argv) {
   matrix_options.cols = 128;
   matrix_options.brightness = 100;
   runtime_options.gpio_slowdown = 5;
+  matrix_options.disable_hardware_pulsing = true;
 
   if (!rgb_matrix::ParseOptionsFromFlags(&argc, &argv, &matrix_options, &runtime_options)) {
     rgb_matrix::PrintMatrixFlags(stderr);
@@ -78,7 +79,7 @@ int main(int argc, char **argv) {
   if ((dir = opendir(folder_path)) != NULL) {
     while ((ent = readdir(dir)) != NULL) {
       std::string file_name = ent->d_name;
-      if (file_name.find(".png") != std::string::npos || file_name.find(".jpg") != std::string::npos) {
+      if (file_name.find(".bmp") != std::string::npos || file_name.find(".jpg") != std::string::npos) {
         try {
           Magick::Image image;
           image.read(std::string(folder_path) + "/" + file_name);
