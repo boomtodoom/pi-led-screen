@@ -112,13 +112,19 @@ int main(int argc, char **argv) {
 
   while (!interrupt_received) {
     for (const auto &file_path : image_files) {
+      if (interrupt_received) break;
       try {
         Magick::Image image;
         image.read(file_path);
         drawImage(image, offscreen_canvas);
         offscreen_canvas = matrix->SwapOnVSync(offscreen_canvas);
         std::cout << "Displayed image: " << file_path << std::endl;
-        usleep(1000000); // Display each image for 1 second
+
+        // Use nanosleep with a loop to periodically check for the interrupt signal
+        struct timespec sleep_time = {0, 35000000}; // 1 second
+        while (!interrupt_received && nanosleep(&sleep_time, &sleep_time) == -1 && errno == EINTR) {
+          // Interrupted by signal, continue sleeping for the remaining time
+        }
       } catch (Magick::Exception &error) {
         fprintf(stderr, "Error loading image %s: %s\n", file_path.c_str(), error.what());
       }
