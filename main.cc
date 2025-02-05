@@ -116,12 +116,13 @@ int main(int argc, char **argv) {
       try {
         Magick::Image image;
         image.read(file_path);
+        image.resize(Magick::Geometry(128, 64)); // Scale the image to 128x64 pixels
         drawImage(image, offscreen_canvas);
         offscreen_canvas = matrix->SwapOnVSync(offscreen_canvas);
         std::cout << "Displayed image: " << file_path << std::endl;
 
         // Use nanosleep with a loop to periodically check for the interrupt signal
-        struct timespec sleep_time = {0, 35000000}; // 1 second
+        struct timespec sleep_time = {0, 35000000}; // 35 milliseconds
         while (!interrupt_received && nanosleep(&sleep_time, &sleep_time) == -1 && errno == EINTR) {
           // Interrupted by signal, continue sleeping for the remaining time
         }
@@ -131,7 +132,7 @@ int main(int argc, char **argv) {
     }
   }
 
-  // delete offscreen_canvas;
+  delete offscreen_canvas;
   delete matrix;
 
   return 0;
