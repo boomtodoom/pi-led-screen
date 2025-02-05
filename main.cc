@@ -37,6 +37,26 @@ void drawImage(const Magick::Image &image, FrameCanvas *canvas){
   }
 }
 
+std::vector<std::string> get_image_files(const std::string &folder_path) {
+  std::vector<std::string> files;
+  DIR *dir;
+  struct dirent *ent;
+
+  if ((dir = opendir(folder_path.c_str())) != NULL) {
+    while ((ent = readdir(dir)) != NULL) {
+      std::string file_name = ent->d_name;
+      if (file_name.find(".bmp") != std::string::npos || file_name.find(".jpg") != std::string::npos) {
+        files.push_back(folder_path + "/" + file_name);
+      }
+    }
+    closedir(dir);
+  } else {
+    perror("Could not open directory");
+  }
+
+  return files;
+}
+
 int main(int argc, char **argv) {
   if (argc < 2) {
     fprintf(stderr, "Usage: %s <image-directory>\n", argv[0]);
@@ -44,35 +64,9 @@ int main(int argc, char **argv) {
   }
 
   const char *folder_path = argv[1];
-  std::vector<Magick::Image> images;
-  DIR *dir;
-  struct dirent *ent;
-  int image_count = 0;
+  std::vector<std::string> image_files = get_image_files(folder_path);
 
-  if ((dir = opendir(folder_path)) != NULL) {
-    while ((ent = readdir(dir)) != NULL) {
-      std::string file_name = ent->d_name;
-      if (file_name.find(".bmp") != std::string::npos || file_name.find(".jpg") != std::string::npos) {
-        try {
-          Magick::Image image;
-          image.read(std::string(folder_path) + "/" + file_name);
-          images.push_back(image);
-          image_count++;
-          std::cout << "Loaded image: " << file_name << " (" << image_count << " images loaded)" << std::endl;
-        } catch (Magick::Exception &error) {
-          fprintf(stderr, "Error loading image %s: %s\n", file_name.c_str(), error.what());
-        }
-      }
-    }
-    closedir(dir);
-  } else {
-    perror("Could not open directory");
-    return 1;
-  }
-
-  std::cout << "Total images loaded: " << image_count << std::endl;
-
-  if (images.empty()) {
+  if (image_files.empty()) {
     fprintf(stderr, "No images found in directory: %s\n", folder_path);
     return 1;
   }
@@ -113,14 +107,21 @@ int main(int argc, char **argv) {
   signal(SIGINT, InterruptHandler);
 
   while (!interrupt_received) {
-    for (const auto &image : images) {
-      drawImage(image, offscreen_canvas);
-      offscreen_canvas = matrix->SwapOnVSync(offscreen_canvas);
-      usleep(1000000); // Display each image for 1 second
+    for (const auto &file_path : image_files) {
+      try {
+        Magick::Image image;
+        image.read(file_path);
+        drawImage(image, offscreen_canvas);
+        offscreen_canvas = matrix->SwapOnVSync(offscreen_canvas);
+        std::cout << "Displayed image: " << file_path << std::endl;
+        usleep(1000000); // Display each image for 1 second
+      } catch (Magick::Exception &error) {
+        fprintf(stderr, "Error loading image %s: %s\n", file_path.c_str(), error.what());
+      }
     }
   }
 
-  delete offscreen_canvas;
+  // delete offscreen_canvas;
   delete matrix;
 
   return 0;
