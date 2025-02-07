@@ -32,7 +32,7 @@ void drawImage(const Magick::Image &image, FrameCanvas *canvas){
         Magick::ColorRGB color = image.pixelColor(x, y);
         canvas->SetPixel(x, y, color.red() * 255, color.green() * 255, color.blue() * 255);
       } else {
-        canvas->SetPixel(x, y, 0, 0, 0);
+        continue;
       }
     }
   }
@@ -46,7 +46,12 @@ std::vector<std::string> get_image_files(const std::string &folder_path) {
   if ((dir = opendir(folder_path.c_str())) != NULL) {
     while ((ent = readdir(dir)) != NULL) {
       std::string file_name = ent->d_name;
-      if (file_name.find(".bmp") != std::string::npos || file_name.find(".jpg") != std::string::npos) {
+      if (file_name.find(".bmp") != std::string::npos || 
+      file_name.find(".jpg") != std::string::npos || 
+      file_name.find(".jpeg") != std::string::npos || 
+      file_name.find(".png") != std::string::npos || 
+      file_name.find(".webp") != std::string::npos)
+      {
         files.push_back(folder_path + "/" + file_name);
       }
     }
@@ -79,17 +84,17 @@ int main(int argc, char **argv) {
   RuntimeOptions runtime_options;
 
   // Set defaults
-  matrix_options.chain_length = 1;
+  matrix_options.chain_length = 2;
   matrix_options.parallel = 1;
   matrix_options.hardware_mapping = "regular";
   matrix_options.rows = 64;
-  matrix_options.cols = 128;
-  matrix_options.show_refresh_rate = true;
-  matrix_options.disable_hardware_pulsing = true;
+  matrix_options.cols = 64;
+  //matrix_options.show_refresh_rate = true;
+  matrix_options.disable_hardware_pulsing = false;
   matrix_options.brightness = 100;
-  matrix_options.pwm_bits = 11;
+  matrix_options.pwm_bits = 7;
   runtime_options.drop_privileges = 1;
-  runtime_options.gpio_slowdown = 5;
+  runtime_options.gpio_slowdown = 4;
 
   if (!rgb_matrix::ParseOptionsFromFlags(&argc, &argv, &matrix_options, &runtime_options)) {
     rgb_matrix::PrintMatrixFlags(stderr);
@@ -119,20 +124,15 @@ int main(int argc, char **argv) {
         image.resize(Magick::Geometry(128, 64)); // Scale the image to 128x64 pixels
         drawImage(image, offscreen_canvas);
         offscreen_canvas = matrix->SwapOnVSync(offscreen_canvas);
-        std::cout << "Displayed image: " << file_path << std::endl;
+        //std::cout << "Displayed image: " << file_path << std::endl;
 
-        // Use nanosleep with a loop to periodically check for the interrupt signal
-        struct timespec sleep_time = {0, 35000000}; // 35 milliseconds
-        while (!interrupt_received && nanosleep(&sleep_time, &sleep_time) == -1 && errno == EINTR) {
-          // Interrupted by signal, continue sleeping for the remaining time
-        }
       } catch (Magick::Exception &error) {
         fprintf(stderr, "Error loading image %s: %s\n", file_path.c_str(), error.what());
       }
     }
   }
 
-  delete offscreen_canvas;
+  // delete offscreen_canvas;
   delete matrix;
 
   return 0;
