@@ -15,6 +15,9 @@
 #include <mutex>
 #include <condition_variable>
 #include <queue>
+#include <sys/stat.h>
+#include <sys/types.h>
+#include <fstream>
 
 using namespace rgb_matrix;
 
@@ -23,22 +26,19 @@ static void InterruptHandler(int signo) {
   interrupt_received = true;
 }
 
-/* Draws an image to the screen pixel by pixel, and pixels outside the 
-image width but within the screen width are set to black to prevent shadowing issues. */
-void drawImage(const Magick::Image &image, FrameCanvas *canvas) {
-  const int imageWidth = image.columns();
-  const int imageHeight = image.rows();
-  
-  // Get pixel data as a raw pointer
-  const Magick::PixelPacket *pixels = image.getConstPixels(0, 0, imageWidth, imageHeight);
-  if (!pixels) return; // Fail-safe check
-
-  const Magick::PixelPacket *pixelPtr = pixels; // Pointer to pixel data
-  for (int y = 0; y < imageHeight; ++y) {
-    for (int x = 0; x < imageWidth; ++x, ++pixelPtr) {
-      canvas->SetPixel(x, y, pixelPtr->red >> 8, pixelPtr->green >> 8, pixelPtr->blue >> 8);
-    }
+bool directory_exists(const std::string &path) {
+  struct stat info;
+  if (stat(path.c_str(), &info) != 0) {
+    return false;
+  } else if (info.st_mode & S_IFDIR) {
+    return true;
+  } else {
+    return false;
   }
+}
+
+void create_directory(const std::string &path) {
+  mkdir(path.c_str(), 0777);
 }
 
 std::vector<std::string> get_image_files(const std::string &folder_path) {
@@ -67,6 +67,22 @@ std::vector<std::string> get_image_files(const std::string &folder_path) {
   std::sort(files.begin(), files.end());
 
   return files;
+}
+
+void resize_and_cache_images(const std::vector<std::string> &image_files, const std::string &cache_dir) {
+  for (const auto &file_path : image_files) {
+    try {
+      Magick::Image image;
+      image.read(file_path);
+      image.resize(Magick::Geometry(128, 64)); // Scale the image to 128x64 pixels
+
+      std::string file_name = file_path.substr(file_path.find_last_of("/") + 1);
+      std::string cache_path = cache_dir + "/" + file_name;
+      image.write(cache_path);
+    } catch (Magick::Exception &error) {
+      fprintf(stderr, "Error processing image %s: %s\n", file_path.c_str(), error.what());
+    }
+  }
 }
 
 std::queue<Magick::Image> image_queue;
@@ -101,10 +117,22 @@ int main(int argc, char **argv) {
   }
 
   const char *folder_path = argv[1];
-  std::vector<std::string> image_files = get_image_files(folder_path);
+  std::string cache_dir = "cache/" + std::string(folder_path);
 
-  if (image_files.empty()) {
-    fprintf(stderr, "No images found in directory: %s\n", folder_path);
+  if (!directory_exists(cache_dir)) {
+    create_directory(cache_dir);
+  }
+
+  std::vector<std::string> image_files = get_image_files(folder_path);
+  std::vector<std::string> cached_files = get_image_files(cache_dir);
+
+  if (cached_files.size() != image_files.size()) {
+    resize_and_cache_images(image_files, cache_dir);
+    cached_files = get_image_files(cache_dir);
+  }
+
+  if (cached_files.empty()) {
+    fprintf(stderr, "No images found in directory: %s\n", folder_path.c_str());
     return 1;
   }
 
@@ -143,7 +171,7 @@ int main(int argc, char **argv) {
   signal(SIGTERM, InterruptHandler);
   signal(SIGINT, InterruptHandler);
 
-  std::thread loader_thread(image_loader, std::ref(image_files));
+  std::thread loader_thread(image_loader, std::ref(cached_files));
 
   while (!interrupt_received) {
     std::unique_lock<std::mutex> lock(queue_mutex);
@@ -178,7 +206,7 @@ int main(int argc, char **argv) {
 
   loader_thread.join();
 
-  // delete offscreen_canvas;
+  delete offscreen_canvas;
   delete matrix;
 
   return 0;
