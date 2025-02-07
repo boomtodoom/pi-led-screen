@@ -21,23 +21,22 @@ static void InterruptHandler(int signo) {
 
 /* Draws an image to the screen pixel by pixel, and pixels outside the 
 image width but within the screen width are set to black to prevent shadowing issues. */
-void drawImage(const Magick::Image &image, FrameCanvas *canvas){
-  const int width = canvas->width();
-  const int height = canvas->height();
+void drawImage(const Magick::Image &image, FrameCanvas *canvas) {
   const int imageWidth = image.columns();
   const int imageHeight = image.rows();
+  
+  // Get pixel data as a raw pointer
+  const Magick::PixelPacket *pixels = image.getConstPixels(0, 0, imageWidth, imageHeight);
+  if (!pixels) return; // Fail-safe check
 
-  for (int x = 0; x < width; ++x){
-    for (int y = 0; y < height; ++y){
-      if (x < imageWidth && y < imageHeight){
-        Magick::ColorRGB color = image.pixelColor(x, y);
-        canvas->SetPixel(x, y, color.red() * 255, color.green() * 255, color.blue() * 255);
-      } else {
-        continue;
-      }
+  const Magick::PixelPacket *pixelPtr = pixels; // Pointer to pixel data
+  for (int y = 0; y < imageHeight; ++y) {
+    for (int x = 0; x < imageWidth; ++x, ++pixelPtr) {
+      canvas->SetPixel(x, y, pixelPtr->red >> 8, pixelPtr->green >> 8, pixelPtr->blue >> 8);
     }
   }
 }
+
 
 std::vector<std::string> get_image_files(const std::string &folder_path) {
   std::vector<std::string> files;
