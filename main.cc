@@ -78,8 +78,12 @@ void image_loader(const std::vector<std::string> &image_files) {
     if (interrupt_received) break;
     try {
       Magick::Image image;
+      auto start = std::chrono::high_resolution_clock::now();
       image.read(file_path);
       image.resize(Magick::Geometry(128, 64)); // Scale the image to 128x64 pixels
+      auto end = std::chrono::high_resolution_clock::now();
+      std::chrono::duration<double, std::milli> duration = end - start;
+      std::cout << "Image load time: " << duration.count() << " ms" << std::endl;
 
       std::lock_guard<std::mutex> lock(queue_mutex);
       image_queue.push(image);
@@ -174,7 +178,7 @@ int main(int argc, char **argv) {
 
   loader_thread.join();
 
-  delete offscreen_canvas;
+  // delete offscreen_canvas;
   delete matrix;
 
   return 0;
