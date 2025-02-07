@@ -150,7 +150,7 @@ int main(int argc, char **argv) {
   }
 
   if (cached_files.empty()) {
-    fprintf(stderr, "No images found in directory: %s\n", folder_path.c_str());
+    fprintf(stderr, "No images found in directory: %s\n", folder_path);
     return 1;
   }
 
@@ -224,7 +224,6 @@ int main(int argc, char **argv) {
 
   loader_thread.join();
 
-  delete offscreen_canvas;
   delete matrix;
 
   return 0;
