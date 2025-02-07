@@ -78,6 +78,12 @@ void resize_and_cache_images(const std::vector<std::string> &image_files, const 
 
       std::string file_name = file_path.substr(file_path.find_last_of("/") + 1);
       std::string cache_path = cache_dir + "/" + file_name;
+
+      // Ensure the cache directory exists
+      if (!directory_exists(cache_dir)) {
+        create_directory(cache_dir);
+      }
+
       image.write(cache_path);
     } catch (Magick::Exception &error) {
       fprintf(stderr, "Error processing image %s: %s\n", file_path.c_str(), error.what());
@@ -135,7 +141,8 @@ int main(int argc, char **argv) {
   }
 
   const char *folder_path = argv[1];
-  std::string cache_dir = "cache/" + std::string(folder_path);
+  std::string project_root = ".";
+  std::string cache_dir = project_root + "/cache/" + std::string(folder_path);
 
   if (!directory_exists(cache_dir)) {
     create_directory(cache_dir);
