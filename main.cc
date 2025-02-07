@@ -11,6 +11,10 @@
 #include <iostream>
 #include <algorithm>
 #include <chrono>
+#include <thread>
+#include <mutex>
+#include <condition_variable>
+#include <queue>
 
 using namespace rgb_matrix;
 
@@ -36,7 +40,6 @@ void drawImage(const Magick::Image &image, FrameCanvas *canvas) {
     }
   }
 }
-
 
 std::vector<std::string> get_image_files(const std::string &folder_path) {
   std::vector<std::string> files;
@@ -64,6 +67,27 @@ std::vector<std::string> get_image_files(const std::string &folder_path) {
   std::sort(files.begin(), files.end());
 
   return files;
+}
+
+std::queue<Magick::Image> image_queue;
+std::mutex queue_mutex;
+std::condition_variable queue_cv;
+
+void image_loader(const std::vector<std::string> &image_files) {
+  for (const auto &file_path : image_files) {
+    if (interrupt_received) break;
+    try {
+      Magick::Image image;
+      image.read(file_path);
+      image.resize(Magick::Geometry(128, 64)); // Scale the image to 128x64 pixels
+
+      std::lock_guard<std::mutex> lock(queue_mutex);
+      image_queue.push(image);
+      queue_cv.notify_one();
+    } catch (Magick::Exception &error) {
+      fprintf(stderr, "Error loading image %s: %s\n", file_path.c_str(), error.what());
+    }
+  }
 }
 
 int main(int argc, char **argv) {
@@ -115,43 +139,42 @@ int main(int argc, char **argv) {
   signal(SIGTERM, InterruptHandler);
   signal(SIGINT, InterruptHandler);
 
+  std::thread loader_thread(image_loader, std::ref(image_files));
+
   while (!interrupt_received) {
-    for (const auto &file_path : image_files) {
-      if (interrupt_received) break;
-      try {
-        auto load_start = std::chrono::high_resolution_clock::now();
-        Magick::Image image;
-        image.read(file_path);
-        auto load_end = std::chrono::high_resolution_clock::now();
-        std::chrono::duration<double, std::milli> load_duration = load_end - load_start;
-        std::cout << "Image load time: " << load_duration.count() << " ms" << std::endl;
+    std::unique_lock<std::mutex> lock(queue_mutex);
+    queue_cv.wait(lock, []{ return !image_queue.empty() || interrupt_received; });
 
-        auto resize_start = std::chrono::high_resolution_clock::now();
-        image.resize(Magick::Geometry(128, 64)); // Scale the image to 128x64 pixels
-        auto resize_end = std::chrono::high_resolution_clock::now();
-        std::chrono::duration<double, std::milli> resize_duration = resize_end - resize_start;
-        std::cout << "Image resize time: " << resize_duration.count() << " ms" << std::endl;
+    if (interrupt_received) break;
 
-        auto draw_start = std::chrono::high_resolution_clock::now();
-        drawImage(image, offscreen_canvas);
-        auto draw_end = std::chrono::high_resolution_clock::now();
-        std::chrono::duration<double, std::milli> draw_duration = draw_end - draw_start;
-        std::cout << "Image draw time: " << draw_duration.count() << " ms" << std::endl;
+    Magick::Image image = image_queue.front();
+    image_queue.pop();
+    lock.unlock();
 
-        auto swap_start = std::chrono::high_resolution_clock::now();
-        offscreen_canvas = matrix->SwapOnVSync(offscreen_canvas);
-        auto swap_end = std::chrono::high_resolution_clock::now();
-        std::chrono::duration<double, std::milli> swap_duration = swap_end - swap_start;
-        std::cout << "Image swap time: " << swap_duration.count() << " ms" << std::endl;
-        //std::cout << "Displayed image: " << file_path << std::endl;
+    auto draw_start = std::chrono::high_resolution_clock::now();
+    drawImage(image, offscreen_canvas);
+    auto draw_end = std::chrono::high_resolution_clock::now();
+    std::chrono::duration<double, std::milli> draw_duration = draw_end - draw_start;
+    std::cout << "Image draw time: " << draw_duration.count() << " ms" << std::endl;
 
-      } catch (Magick::Exception &error) {
-        fprintf(stderr, "Error loading image %s: %s\n", file_path.c_str(), error.what());
-      }
+    auto swap_start = std::chrono::high_resolution_clock::now();
+    offscreen_canvas = matrix->SwapOnVSync(offscreen_canvas);
+    auto swap_end = std::chrono::high_resolution_clock::now();
+    std::chrono::duration<double, std::milli> swap_duration = swap_end - swap_start;
+    std::cout << "Canvas swap time: " << swap_duration.count() << " ms" << std::endl;
+
+    std::cout << "Displayed image" << std::endl;
+
+    // Use nanosleep with a loop to periodically check for the interrupt signal
+    struct timespec sleep_time = {0, 35000000}; // 35 milliseconds
+    while (!interrupt_received && nanosleep(&sleep_time, &sleep_time) == -1 && errno == EINTR) {
+      // Interrupted by signal, continue sleeping for the remaining time
     }
   }
 
-  // delete offscreen_canvas;
+  loader_thread.join();
+
+  delete offscreen_canvas;
   delete matrix;
 
   return 0;
