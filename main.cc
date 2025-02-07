@@ -142,7 +142,7 @@ int main(int argc, char **argv) {
 
   const char *folder_path = argv[1];
   std::string project_root = ".";
-  std::string cache_dir = project_root + "/cache/" + std::string(folder_path);
+  std::string cache_dir = project_root + "/cache/" + std::string(folder_path).substr(std::string(folder_path).find_last_of("/") + 1);
 
   if (!directory_exists(cache_dir)) {
     create_directory(cache_dir);
