@@ -110,6 +110,24 @@ void image_loader(const std::vector<std::string> &image_files) {
   }
 }
 
+/* Draws an image to the screen pixel by pixel, and pixels outside the 
+image width but within the screen width are set to black to prevent shadowing issues. */
+void drawImage(const Magick::Image &image, FrameCanvas *canvas) {
+  const int imageWidth = image.columns();
+  const int imageHeight = image.rows();
+  
+  // Get pixel data as a raw pointer
+  const Magick::PixelPacket *pixels = image.getConstPixels(0, 0, imageWidth, imageHeight);
+  if (!pixels) return; // Fail-safe check
+
+  const Magick::PixelPacket *pixelPtr = pixels; // Pointer to pixel data
+  for (int y = 0; y < imageHeight; ++y) {
+    for (int x = 0; x < imageWidth; ++x, ++pixelPtr) {
+      canvas->SetPixel(x, y, pixelPtr->red >> 8, pixelPtr->green >> 8, pixelPtr->blue >> 8);
+    }
+  }
+}
+
 int main(int argc, char **argv) {
   if (argc < 2) {
     fprintf(stderr, "Usage: %s <image-directory>\n", argv[0]);
