@@ -96,22 +96,24 @@ std::mutex queue_mutex;
 std::condition_variable queue_cv;
 
 void image_loader(const std::vector<std::string> &image_files) {
-  for (const auto &file_path : image_files) {
-    if (interrupt_received) break;
-    try {
-      Magick::Image image;
-      auto start = std::chrono::high_resolution_clock::now();
-      image.read(file_path);
-      image.resize(Magick::Geometry(128, 64)); // Scale the image to 128x64 pixels
-      auto end = std::chrono::high_resolution_clock::now();
-      std::chrono::duration<double, std::milli> duration = end - start;
-      std::cout << "Image load time: " << duration.count() << " ms" << std::endl;
+  while(!interrupt_received){
+    for (const auto &file_path : image_files) {
+      if (interrupt_received) break;
+      try {
+        Magick::Image image;
+        auto start = std::chrono::high_resolution_clock::now();
+        image.read(file_path);
+        image.resize(Magick::Geometry(128, 64)); // Scale the image to 128x64 pixels
+        auto end = std::chrono::high_resolution_clock::now();
+        std::chrono::duration<double, std::milli> duration = end - start;
+        std::cout << "Image load time: " << duration.count() << " ms" << std::endl;
 
-      std::lock_guard<std::mutex> lock(queue_mutex);
-      image_queue.push(image);
-      queue_cv.notify_one();
-    } catch (Magick::Exception &error) {
-      fprintf(stderr, "Error loading image %s: %s\n", file_path.c_str(), error.what());
+        std::lock_guard<std::mutex> lock(queue_mutex);
+        image_queue.push(image);
+        queue_cv.notify_one();
+      } catch (Magick::Exception &error) {
+        fprintf(stderr, "Error loading image %s: %s\n", file_path.c_str(), error.what());
+      }
     }
   }
 }
@@ -224,7 +226,7 @@ int main(int argc, char **argv) {
     std::cout << "Displayed image" << std::endl;
 
     // Use nanosleep with a loop to periodically check for the interrupt signal
-    struct timespec sleep_time = {0, 35000000}; // 35 milliseconds
+    struct timespec sleep_time = {0, 25000000}; // 35 milliseconds
     while (!interrupt_received && nanosleep(&sleep_time, &sleep_time) == -1 && errno == EINTR) {
       // Interrupted by signal, continue sleeping for the remaining time
     }
