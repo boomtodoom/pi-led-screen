@@ -70,6 +70,11 @@ std::vector<std::string> get_image_files(const std::string &folder_path) {
 }
 
 void resize_and_cache_images(const std::vector<std::string> &image_files, const std::string &cache_dir) {
+  // Ensure the cache directory exists
+  if (!directory_exists(cache_dir)) {
+    create_directory(cache_dir);
+  }
+
   for (const auto &file_path : image_files) {
     try {
       Magick::Image image;
@@ -78,11 +83,6 @@ void resize_and_cache_images(const std::vector<std::string> &image_files, const 
 
       std::string file_name = file_path.substr(file_path.find_last_of("/") + 1);
       std::string cache_path = cache_dir + "/" + file_name;
-
-      // Ensure the cache directory exists
-      if (!directory_exists(cache_dir)) {
-        create_directory(cache_dir);
-      }
 
       image.write(cache_path);
     } catch (Magick::Exception &error) {
@@ -142,7 +142,8 @@ int main(int argc, char **argv) {
 
   const char *folder_path = argv[1];
   std::string project_root = ".";
-  std::string cache_dir = project_root + "/cache/" + std::string(folder_path).substr(std::string(folder_path).find_last_of("/") + 1);
+  std::string input_folder_name = std::string(folder_path).substr(std::string(folder_path).find_last_of("/") + 1);
+  std::string cache_dir = project_root + "/cache/" + input_folder_name;
 
   if (!directory_exists(cache_dir)) {
     create_directory(cache_dir);
